@@ -318,8 +318,21 @@ function DetailsModal({ movie, loading, onClose, onFavorite, saved }) {
       </div>
       <div className="details-body">
         {loading ? <div className="modal-loading">Loading the full story…</div> : <>
+          {movie.trailerKey && <section className="embedded-trailer" aria-label={`${movie.title} official trailer`}>
+            <div className="trailer-heading"><span className="kicker">OFFICIAL TRAILER</span><a href={movie.trailerUrl} target="_blank" rel="noreferrer">Open on YouTube ↗</a></div>
+            <div className="trailer-frame">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${movie.trailerKey}?rel=0`}
+                title={`${movie.title} official trailer`}
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </div>
+          </section>}
           <div className="details-copy"><p>{movie.plot || "Story details are coming soon."}</p><div className="detail-actions">
-            <a className="primary button-link" href={movie.trailerUrl || `https://youtube.com/results?search_query=${encodeURIComponent(movie.title + " trailer")}`} target="_blank" rel="noreferrer">▶ Trailer</a>
+            {!movie.trailerKey && <a className="primary button-link" href={`https://youtube.com/results?search_query=${encodeURIComponent(movie.title + " official trailer")}`} target="_blank" rel="noreferrer">▶ Find trailer</a>}
             <button className="glass" onClick={() => onFavorite(movie)}>{saved ? "✓ Saved" : "+ My list"}</button>
           </div><dl><div><dt>Cast</dt><dd>{movie.actors || "Details unavailable"}</dd></div><div><dt>Director / Creator</dt><dd>{movie.director || "Details unavailable"}</dd></div></dl></div>
           <aside className="watch-panel"><span className="kicker">WHERE TO WATCH · INDIA</span><h3>Available on</h3>
