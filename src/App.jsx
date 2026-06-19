@@ -48,7 +48,8 @@ async function api(path, options) {
 
 function App() {
   const [homeRows, setHomeRows] = useState({});
-  const [featured, setFeatured] = useState(null);
+  const [featuredMovies, setFeaturedMovies] = useState(demoMovies.slice(0, 5));
+  const [featuredIndex, setFeaturedIndex] = useState(0);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [results, setResults] = useState([]);
@@ -77,9 +78,19 @@ function App() {
     })).then((entries) => setHomeRows(Object.fromEntries(entries)));
 
     api("/api/tmdb?mode=recent")
-      .then((data) => setFeatured(data.results?.[0] || demoMovies[0]))
-      .catch(() => setFeatured(demoMovies[0]));
+      .then((data) => {
+        if (data.results?.length) setFeaturedMovies(data.results.slice(0, 5));
+      })
+      .catch(() => setFeaturedMovies(demoMovies.slice(0, 5)));
   }, []);
+
+  useEffect(() => {
+    if (featuredMovies.length < 2) return undefined;
+    const timer = window.setInterval(() => {
+      setFeaturedIndex((current) => (current + 1) % featuredMovies.length);
+    }, 6500);
+    return () => window.clearInterval(timer);
+  }, [featuredMovies]);
 
   useEffect(() => {
     if (query.trim().length < 2) return setSuggestions([]);
@@ -92,6 +103,7 @@ function App() {
   }, [query]);
 
   const favoriteIds = useMemo(() => new Set(favorites.map((item) => item.id)), [favorites]);
+  const featured = featuredMovies[featuredIndex] || demoMovies[0];
 
   async function search(event) {
     event?.preventDefault();
@@ -183,7 +195,16 @@ function App() {
       />
 
       <main>
-        <Hero movie={featured || demoMovies[0]} onDetails={openDetails} onFavorite={toggleFavorite} saved={favoriteIds.has(featured?.id)} />
+        <Hero
+          key={featured.id}
+          movie={featured}
+          index={featuredIndex}
+          count={featuredMovies.length}
+          onSelect={setFeaturedIndex}
+          onDetails={openDetails}
+          onFavorite={toggleFavorite}
+          saved={favoriteIds.has(featured.id)}
+        />
 
         <section className="control-dock">
           <div>
@@ -240,7 +261,7 @@ function Header({ query, setQuery, suggestions, onSearch, onSelectSuggestion, fa
   </header>;
 }
 
-function Hero({ movie, onDetails, onFavorite, saved }) {
+function Hero({ movie, index, count, onSelect, onDetails, onFavorite, saved }) {
   return <section id="top" className="hero" style={movie.backdrop ? { "--hero-image": `url(${movie.backdrop})` } : {}}>
     <div className="hero-content">
       <div className="hero-badge"><span /> FEATURED PREMIERE</div>
@@ -251,8 +272,18 @@ function Hero({ movie, onDetails, onFavorite, saved }) {
         <button className="primary" onClick={() => onDetails(movie)}>▶ View details</button>
         <button className="glass" onClick={() => onFavorite(movie)}>{saved ? "✓ In my list" : "+ My list"}</button>
       </div>
+      <div className="hero-dots" aria-label="Featured titles">
+        {Array.from({ length: count }, (_, dotIndex) => (
+          <button
+            key={dotIndex}
+            className={dotIndex === index ? "active" : ""}
+            onClick={() => onSelect(dotIndex)}
+            aria-label={`Show featured title ${dotIndex + 1}`}
+          />
+        ))}
+      </div>
     </div>
-    <div className="hero-index">01 <span>/ 05</span></div>
+    <div className="hero-index">{String(index + 1).padStart(2, "0")} <span>/ {String(count).padStart(2, "0")}</span></div>
   </section>;
 }
 
