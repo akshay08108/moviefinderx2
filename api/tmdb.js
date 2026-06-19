@@ -1,5 +1,6 @@
 const imageBaseUrl = "https://image.tmdb.org/t/p/w500";
 const backdropBaseUrl = "https://image.tmdb.org/t/p/w780";
+const providerLogoBaseUrl = "https://image.tmdb.org/t/p/w92";
 
 export default async function handler(request, response) {
   const apiKey = process.env.TMDB_API_KEY;
@@ -35,9 +36,7 @@ export default async function handler(request, response) {
     }
 
     if (mode === "details") {
-      return response.status(200).json(
-        await getDetails(apiKey, request.query)
-      );
+      return response.status(200).json(await getDetails(apiKey, request.query));
     }
 
     return response.status(400).json({ error: "Unsupported TMDB mode." });
@@ -136,13 +135,15 @@ async function getDetails(apiKey, query) {
   const { mediaType, tmdbId } = parseTmdbId(query.id);
   const path = mediaType === "series" ? `/tv/${tmdbId}` : `/movie/${tmdbId}`;
   const tmdbUrl = createTmdbUrl(apiKey, path);
-  tmdbUrl.searchParams.set("append_to_response", "credits,videos,external_ids");
+  tmdbUrl.searchParams.set("append_to_response", "credits,videos,external_ids,watch/providers");
 
   const data = await fetchJson(tmdbUrl);
   const trailer = (data.videos?.results || []).find((video) =>
     video.site === "YouTube" && video.type === "Trailer"
   ) || (data.videos?.results || []).find((video) => video.site === "YouTube");
   const credits = data.credits?.cast || [];
+  const region = String(query.region || "IN").toUpperCase();
+  const providerData = data["watch/providers"]?.results?.[region] || {};
 
   return {
     id: `${mediaType}:${data.id}`,
@@ -171,7 +172,22 @@ async function getDetails(apiKey, query) {
     trailerKey: trailer?.key || "",
     trailerUrl: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : "",
     seasons: mediaType === "series" ? normalizeTmdbSeasons(data.seasons || []) : [],
+    watchProviders: {
+      region,
+      link: providerData.link || "",
+      stream: normalizeProviders(providerData.flatrate || []),
+      rent: normalizeProviders(providerData.rent || []),
+      buy: normalizeProviders(providerData.buy || []),
+    },
   };
+}
+
+function normalizeProviders(providers) {
+  return providers.map((provider) => ({
+    id: provider.provider_id,
+    name: provider.provider_name,
+    logo: provider.logo_path ? `${providerLogoBaseUrl}${provider.logo_path}` : "",
+  }));
 }
 
 function createTmdbUrl(apiKey, path) {
