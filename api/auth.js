@@ -37,13 +37,13 @@ export default async function handler(request, response) {
         });
       }
 
-      return response.status(200).json({ message: "A 6-digit verification code was sent to your email." });
+      return response.status(200).json({ message: "A verification code was sent to your email." });
     }
 
     if (action === "verify") {
       const token = String(request.body?.token || "").trim();
-      if (!/^\d{6}$/.test(token)) {
-        return response.status(400).json({ error: "Enter the 6-digit code from your email." });
+      if (!/^\d{6,10}$/.test(token)) {
+        return response.status(400).json({ error: "Enter the 6–10 digit code from your email." });
       }
 
       const authResponse = await fetch(`${supabaseUrl}/auth/v1/verify`, {
