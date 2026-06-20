@@ -384,10 +384,67 @@ function DetailsModal({ movie, loading, onClose, onFavorite, onWatch, saved }) {
             {allProviders.length ? <div className="providers">{allProviders.map((provider) => <div key={provider.id}>{provider.logo ? <img src={provider.logo} alt="" /> : <b>{provider.name[0]}</b>}<span>{provider.name}</span></div>)}</div> : <p className="provider-empty">Streaming availability isn’t listed for this title yet.</p>}
             {providers.link && <a className="provider-watch" href={providers.link} target="_blank" rel="noreferrer">Watch now on a provider ↗</a>}
           </aside>
+          {movie.type === "series" && Array.isArray(movie.seasons) && movie.seasons.length > 0 && <SeriesBrowser movie={movie} />}
         </>}
       </div>
     </section>
   </div>;
+}
+
+function SeriesBrowser({ movie }) {
+  const firstSeason = String(movie.seasons?.[0]?.season || "1");
+  const [season, setSeason] = useState(firstSeason);
+  const [seasonData, setSeasonData] = useState(null);
+  const [seasonStatus, setSeasonStatus] = useState("Loading episodes…");
+
+  useEffect(() => {
+    const available = (movie.seasons || []).map((item) => String(item.season));
+    if (!available.includes(season)) setSeason(available[0] || "1");
+  }, [movie.id, movie.seasons, season]);
+
+  useEffect(() => {
+    let active = true;
+    setSeasonData(null);
+    setSeasonStatus("Loading episodes…");
+
+    api(`/api/tmdb?mode=season&id=${encodeURIComponent(movie.id)}&season=${encodeURIComponent(season)}`)
+      .then((data) => {
+        if (!active) return;
+        setSeasonData(data);
+        setSeasonStatus(data.episodes?.length ? "" : "No episode information is available.");
+      })
+      .catch((error) => {
+        if (active) setSeasonStatus(error.message || "Could not load this season.");
+      });
+
+    return () => { active = false; };
+  }, [movie.id, season]);
+
+  return <section className="series-browser">
+    <div className="series-heading">
+      <div><span className="kicker">EPISODE GUIDE</span><h3>{movie.totalSeasons || movie.seasons.length} seasons</h3></div>
+      <label>Season
+        <select value={season} onChange={(event) => setSeason(event.target.value)}>
+          {movie.seasons.map((item) => <option key={item.season} value={item.season}>{item.title || `Season ${item.season}`}</option>)}
+        </select>
+      </label>
+    </div>
+    {seasonStatus && <div className="season-status">{seasonStatus}</div>}
+    {seasonData?.overview && <p className="season-overview">{seasonData.overview}</p>}
+    {seasonData?.episodes?.length > 0 && <div className="episode-list">
+      {seasonData.episodes.map((episode) => <article className="episode-card" key={episode.number}>
+        <div className="episode-still">
+          {episode.still ? <img src={episode.still} alt="" loading="lazy" /> : <span>Episode {episode.number}</span>}
+          <b>{String(episode.number).padStart(2, "0")}</b>
+        </div>
+        <div className="episode-copy">
+          <div className="episode-title"><h4>{episode.title}</h4><span>TMDB {episode.rating}</span></div>
+          <p>{episode.overview || "Episode description is unavailable."}</p>
+          <small>{episode.released} · {episode.runtime}</small>
+        </div>
+      </article>)}
+    </div>}
+  </section>;
 }
 
 function FavoritesModal({ movies, onClose, onDetails, onFavorite, onWatch, favorites }) {
