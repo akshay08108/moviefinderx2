@@ -66,6 +66,8 @@ function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("movieFinderUser") || "null"));
+  const [playerUrl, setPlayerUrl] = useState(null);
+  const [playerTitle, setPlayerTitle] = useState("");
 
   useEffect(() => {
     Promise.all(rows.map(async ({ key }) => {
@@ -172,6 +174,35 @@ function App() {
     }
   }
 
+  async function watchNow(movie) {
+    setLoading(true);
+    setStatus(`Starting ${movie.title}…`);
+
+    try {
+      const tmdbId = movie.tmdbId || String(movie.id || "").split(":").pop();
+
+      if (!tmdbId || !/^\d+$/.test(String(tmdbId))) {
+        throw new Error("This title does not have a valid TMDB ID yet. Search a live movie and try again.");
+      }
+
+      const type = movie.type === "series" || movie.type === "tv" ? "tv" : "movie";
+      const params = new URLSearchParams({ type, id: String(tmdbId) });
+
+      if (type === "tv") {
+        params.set("season", "1");
+        params.set("episode", "1");
+      }
+
+      setPlayerTitle(movie.title);
+      setPlayerUrl(`/api/player?${params.toString()}`);
+      setStatus(`Playing ${movie.title}`);
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function toggleFavorite(movie) {
     const next = favoriteIds.has(movie.id)
       ? favorites.filter((item) => item.id !== movie.id)
@@ -201,6 +232,7 @@ function App() {
           index={featuredIndex}
           count={featuredMovies.length}
           onSelect={setFeaturedIndex}
+          onWatch={watchNow}
           onDetails={openDetails}
           onFavorite={toggleFavorite}
           saved={favoriteIds.has(featured.id)}
@@ -243,6 +275,7 @@ function App() {
       {showFavorites && <FavoritesModal movies={favorites} onClose={() => setShowFavorites(false)} onDetails={openDetails} onFavorite={toggleFavorite} favorites={favoriteIds} />}
       {aiOpen && <AiModal prompt={aiPrompt} setPrompt={setAiPrompt} onSubmit={askAi} onClose={() => setAiOpen(false)} loading={loading} />}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onUser={(next) => { setUser(next); localStorage.setItem("movieFinderUser", JSON.stringify(next)); }} />}
+      {playerUrl && <PlayerModal title={playerTitle} url={playerUrl} onClose={() => { setPlayerUrl(null); setPlayerTitle(""); }} />}
     </div>
   );
 }
@@ -261,7 +294,7 @@ function Header({ query, setQuery, suggestions, onSearch, onSelectSuggestion, fa
   </header>;
 }
 
-function Hero({ movie, index, count, onSelect, onDetails, onFavorite, saved }) {
+function Hero({ movie, index, count, onSelect, onWatch, onDetails, onFavorite, saved }) {
   return <section id="top" className="hero" style={movie.backdrop ? { "--hero-image": `url(${movie.backdrop})` } : {}}>
     <div className="hero-content">
       <div className="hero-badge"><span /> FEATURED PREMIERE</div>
@@ -269,7 +302,8 @@ function Hero({ movie, index, count, onSelect, onDetails, onFavorite, saved }) {
       <div className="hero-meta"><strong>98% Match</strong><span>{movie.year}</span><em>{movie.type}</em><span>4K</span></div>
       <p>{movie.plot || "Some stories entertain you. Others follow you home. Discover remarkable films and series selected for your next movie night."}</p>
       <div className="hero-actions">
-        <button className="primary" onClick={() => onDetails(movie)}>▶ View details</button>
+        <button className="primary" onClick={() => onWatch(movie)}>▶ Watch now</button>
+        <button className="glass" onClick={() => onDetails(movie)}>More info</button>
         <button className="glass" onClick={() => onFavorite(movie)}>{saved ? "✓ In my list" : "+ My list"}</button>
       </div>
       <div className="hero-dots" aria-label="Featured titles">
@@ -337,7 +371,7 @@ function DetailsModal({ movie, loading, onClose, onFavorite, saved }) {
           </div><dl><div><dt>Cast</dt><dd>{movie.actors || "Details unavailable"}</dd></div><div><dt>Director / Creator</dt><dd>{movie.director || "Details unavailable"}</dd></div></dl></div>
           <aside className="watch-panel"><span className="kicker">WHERE TO WATCH · INDIA</span><h3>Available on</h3>
             {allProviders.length ? <div className="providers">{allProviders.map((provider) => <div key={provider.id}>{provider.logo ? <img src={provider.logo} alt="" /> : <b>{provider.name[0]}</b>}<span>{provider.name}</span></div>)}</div> : <p className="provider-empty">Streaming availability isn’t listed for this title yet.</p>}
-            {providers.link && <a href={providers.link} target="_blank" rel="noreferrer">See all viewing options ↗</a>}
+            {providers.link && <a className="provider-watch" href={providers.link} target="_blank" rel="noreferrer">Watch now on a provider ↗</a>}
           </aside>
         </>}
       </div>
@@ -355,6 +389,26 @@ function AiModal({ prompt, setPrompt, onSubmit, onClose, loading }) {
   return <div className="modal-layer"><section className="ai-modal"><button className="modal-close" onClick={onClose}>×</button><div className="ai-orb">✦</div><span className="kicker">AI CONCIERGE</span><h2>Tell us the vibe.</h2><p>Describe a mood, language, occasion, or the kind of story you want tonight.</p>
     <form onSubmit={onSubmit}><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="A clever Hindi thriller for a rainy night…" maxLength="400" autoFocus /><button className="primary" disabled={loading}>{loading ? "Curating…" : "Find my movie ✦"}</button></form>
   </section></div>;
+}
+
+function PlayerModal({ title, url, onClose }) {
+  return <div className="modal-layer" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <section className="player-modal">
+      <button className="modal-close" onClick={onClose}>×</button>
+      <div className="player-header">
+        <span className="kicker">NOW PLAYING</span>
+        <h2>{title || "Movie player"}</h2>
+      </div>
+      <div className="player-frame">
+        <iframe
+          src={url}
+          title={title || "Movie player"}
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    </section>
+  </div>;
 }
 
 function AuthModal({ onClose, onUser }) {
