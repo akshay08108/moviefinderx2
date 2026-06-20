@@ -174,7 +174,7 @@ function App() {
     }
   }
 
-  async function watchNow(movie) {
+  async function watchNow(movie, season = 1, episode = 1) {
     setLoading(true);
     setStatus(`Starting ${movie.title}…`);
 
@@ -189,13 +189,13 @@ function App() {
       const params = new URLSearchParams({ type, id: String(tmdbId) });
 
       if (type === "tv") {
-        params.set("season", "1");
-        params.set("episode", "1");
+        params.set("season", String(season || 1));
+        params.set("episode", String(episode || 1));
       }
 
-      setPlayerTitle(movie.title);
+      setPlayerTitle(type === "tv" ? `${movie.title} · S${season} E${episode}` : movie.title);
       setPlayerUrl(`/api/player?${params.toString()}`);
-      setStatus(`Playing ${movie.title}`);
+      setStatus(type === "tv" ? `Playing ${movie.title} S${season} E${episode}` : `Playing ${movie.title}`);
     } catch (error) {
       setStatus(error.message);
     } finally {
@@ -263,7 +263,7 @@ function App() {
           {visibleSections.map((section) => (
             <MovieShelf
               key={section.key} title={section.title} movies={section.movies}
-              favorites={favoriteIds} onDetails={openDetails} onFavorite={toggleFavorite}
+              favorites={favoriteIds} onDetails={openDetails} onFavorite={toggleFavorite} onWatch={watchNow}
             />
           ))}
         </div>
@@ -271,8 +271,8 @@ function App() {
 
       <footer><div className="logo"><b>M</b> MovieFinder</div><p>Find the story that stays with you.</p><span>Powered by TMDB</span></footer>
 
-      {selected && <DetailsModal movie={{ ...selected, ...details }} loading={!details} onClose={() => setSelected(null)} onFavorite={toggleFavorite} saved={favoriteIds.has(selected.id)} />}
-      {showFavorites && <FavoritesModal movies={favorites} onClose={() => setShowFavorites(false)} onDetails={openDetails} onFavorite={toggleFavorite} favorites={favoriteIds} />}
+      {selected && <DetailsModal movie={{ ...selected, ...details }} loading={!details} onClose={() => setSelected(null)} onFavorite={toggleFavorite} onWatch={watchNow} saved={favoriteIds.has(selected.id)} />}
+      {showFavorites && <FavoritesModal movies={favorites} onClose={() => setShowFavorites(false)} onDetails={openDetails} onFavorite={toggleFavorite} onWatch={watchNow} favorites={favoriteIds} />}
       {aiOpen && <AiModal prompt={aiPrompt} setPrompt={setAiPrompt} onSubmit={askAi} onClose={() => setAiOpen(false)} loading={loading} />}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onUser={(next) => { setUser(next); localStorage.setItem("movieFinderUser", JSON.stringify(next)); }} />}
       {playerUrl && <PlayerModal title={playerTitle} url={playerUrl} onClose={() => { setPlayerUrl(null); setPlayerTitle(""); }} />}
@@ -321,29 +321,51 @@ function Hero({ movie, index, count, onSelect, onWatch, onDetails, onFavorite, s
   </section>;
 }
 
-function MovieShelf({ title, movies, favorites, onDetails, onFavorite }) {
+function MovieShelf({ title, movies, favorites, onDetails, onFavorite, onWatch }) {
   return <section className="shelf" id="discover">
     <div className="shelf-heading"><h2>{title}</h2><button>View all <span>→</span></button></div>
     <div className="movie-row">
-      {movies.map((movie, index) => <MovieCard key={`${movie.id}-${index}`} movie={movie} saved={favorites.has(movie.id)} onDetails={onDetails} onFavorite={onFavorite} />)}
+      {movies.map((movie, index) => <MovieCard key={`${movie.id}-${index}`} movie={movie} saved={favorites.has(movie.id)} onDetails={onDetails} onFavorite={onFavorite} onWatch={onWatch} />)}
     </div>
   </section>;
 }
 
-function MovieCard({ movie, saved, onDetails, onFavorite }) {
+function MovieCard({ movie, saved, onDetails, onFavorite, onWatch }) {
   return <article className={`movie-card tone-${movie.tone || "blue"}`}>
-    <button className="poster-button" onClick={() => onDetails(movie)} aria-label={`View ${movie.title}`}>
-      {movie.poster && movie.poster !== "N/A" ? <img src={movie.poster} alt="" loading="lazy" /> : <div className="poster-fallback"><b>{movie.title}</b><span>MovieFinder original</span></div>}
-      <div className="card-overlay"><span className="play">▶</span><p>{movie.year} · {movie.type}</p></div>
-    </button>
-    <div className="card-caption"><div><h3>{movie.title}</h3><p>{movie.year} · {movie.type}</p></div><button className={saved ? "saved" : ""} onClick={() => onFavorite(movie)}>{saved ? "✓" : "+"}</button></div>
+    <div className="poster-wrap">
+      <button className="poster-button" onClick={() => onDetails(movie)} aria-label={`View ${movie.title}`}>
+        {movie.poster && movie.poster !== "N/A" ? <img src={movie.poster} alt="" loading="lazy" /> : <div className="poster-fallback"><b>{movie.title}</b><span>MovieFinder original</span></div>}
+        <div className="card-overlay"><p>{movie.year} · {movie.type}</p><span>More info</span></div>
+      </button>
+      <button className="card-play-overlay" onClick={() => onWatch(movie)} aria-label={`Play ${movie.title}`}>
+        <span>▶</span> Play
+      </button>
+    </div>
+    <div className="card-caption">
+      <div><h3>{movie.title}</h3><p>{movie.year} · {movie.type}</p></div>
+      <button className={saved ? "saved" : ""} onClick={() => onFavorite(movie)}>{saved ? "✓" : "+"}</button>
+    </div>
   </article>;
 }
 
-function DetailsModal({ movie, loading, onClose, onFavorite, saved }) {
+function DetailsModal({ movie, loading, onClose, onFavorite, onWatch, saved }) {
   const providers = movie.watchProviders || {};
+  const seasons = movie.seasons || [];
+  const firstSeason = seasons[0]?.season || 1;
+  const [selectedSeason, setSelectedSeason] = useState(firstSeason);
+  const [selectedEpisode, setSelectedEpisode] = useState(1);
+
+  useEffect(() => {
+    setSelectedSeason(firstSeason);
+    setSelectedEpisode(1);
+  }, [movie.id, firstSeason]);
+
+  const currentSeason = seasons.find((season) => season.season === Number(selectedSeason)) || seasons[0];
+  const episodeCount = currentSeason?.episodes || 1;
+  const isSeries = movie.type === "series" || movie.type === "tv";
   const allProviders = [...(providers.stream || []), ...(providers.rent || []), ...(providers.buy || [])]
     .filter((provider, index, array) => array.findIndex((item) => item.id === provider.id) === index);
+
   return <div className="modal-layer" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
     <section className="details-modal">
       <button className="modal-close" onClick={onClose}>×</button>
@@ -365,10 +387,38 @@ function DetailsModal({ movie, loading, onClose, onFavorite, saved }) {
               />
             </div>
           </section>}
-          <div className="details-copy"><p>{movie.plot || "Story details are coming soon."}</p><div className="detail-actions">
-            {!movie.trailerKey && <a className="primary button-link" href={`https://youtube.com/results?search_query=${encodeURIComponent(movie.title + " official trailer")}`} target="_blank" rel="noreferrer">▶ Find trailer</a>}
-            <button className="glass" onClick={() => onFavorite(movie)}>{saved ? "✓ Saved" : "+ My list"}</button>
-          </div><dl><div><dt>Cast</dt><dd>{movie.actors || "Details unavailable"}</dd></div><div><dt>Director / Creator</dt><dd>{movie.director || "Details unavailable"}</dd></div></dl></div>
+          <div className="details-copy">
+            <p>{movie.plot || "Story details are coming soon."}</p>
+
+            {isSeries && seasons.length > 0 && <section className="episode-picker">
+              <span className="kicker">EPISODE PLAYER</span>
+              <h3>Select season and episode</h3>
+              <div className="episode-controls">
+                <label>
+                  <span>Season</span>
+                  <select value={selectedSeason} onChange={(e) => { setSelectedSeason(Number(e.target.value)); setSelectedEpisode(1); }}>
+                    {seasons.map((season) => <option key={season.season} value={season.season}>Season {season.season}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Episode</span>
+                  <select value={selectedEpisode} onChange={(e) => setSelectedEpisode(Number(e.target.value))}>
+                    {Array.from({ length: episodeCount }, (_, index) => index + 1).map((episode) => <option key={episode} value={episode}>Episode {episode}</option>)}
+                  </select>
+                </label>
+                <button className="primary" onClick={() => onWatch(movie, selectedSeason, selectedEpisode)}>▶ Play episode</button>
+              </div>
+              <p>{currentSeason?.title || `Season ${selectedSeason}`} · {episodeCount} episodes</p>
+            </section>}
+
+            <div className="detail-actions">
+              {!isSeries && <button className="primary" onClick={() => onWatch(movie)}>▶ Play</button>}
+              {isSeries && !seasons.length && <button className="primary" onClick={() => onWatch(movie, 1, 1)}>▶ Play S1 E1</button>}
+              {!movie.trailerKey && <a className="glass button-link" href={`https://youtube.com/results?search_query=${encodeURIComponent(movie.title + " official trailer")}`} target="_blank" rel="noreferrer">Find trailer</a>}
+              <button className="glass" onClick={() => onFavorite(movie)}>{saved ? "✓ Saved" : "+ My list"}</button>
+            </div>
+            <dl><div><dt>Cast</dt><dd>{movie.actors || "Details unavailable"}</dd></div><div><dt>Director / Creator</dt><dd>{movie.director || "Details unavailable"}</dd></div></dl>
+          </div>
           <aside className="watch-panel"><span className="kicker">WHERE TO WATCH · INDIA</span><h3>Available on</h3>
             {allProviders.length ? <div className="providers">{allProviders.map((provider) => <div key={provider.id}>{provider.logo ? <img src={provider.logo} alt="" /> : <b>{provider.name[0]}</b>}<span>{provider.name}</span></div>)}</div> : <p className="provider-empty">Streaming availability isn’t listed for this title yet.</p>}
             {providers.link && <a className="provider-watch" href={providers.link} target="_blank" rel="noreferrer">Watch now on a provider ↗</a>}
@@ -379,9 +429,9 @@ function DetailsModal({ movie, loading, onClose, onFavorite, saved }) {
   </div>;
 }
 
-function FavoritesModal({ movies, onClose, onDetails, onFavorite, favorites }) {
+function FavoritesModal({ movies, onClose, onDetails, onFavorite, onWatch, favorites }) {
   return <div className="modal-layer"><section className="list-modal"><button className="modal-close" onClick={onClose}>×</button><span className="kicker">YOUR COLLECTION</span><h2>My list</h2>
-    {movies.length ? <div className="favorite-grid">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} saved={favorites.has(movie.id)} onDetails={(item) => { onClose(); onDetails(item); }} onFavorite={onFavorite} />)}</div> : <div className="empty-list">Your list is waiting for its first great story.</div>}
+    {movies.length ? <div className="favorite-grid">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} saved={favorites.has(movie.id)} onDetails={(item) => { onClose(); onDetails(item); }} onFavorite={onFavorite} onWatch={(item) => { onClose(); onWatch(item); }} />)}</div> : <div className="empty-list">Your list is waiting for its first great story.</div>}
   </section></div>;
 }
 
@@ -392,12 +442,20 @@ function AiModal({ prompt, setPrompt, onSubmit, onClose, loading }) {
 }
 
 function PlayerModal({ title, url, onClose }) {
+  function openFullScreen() {
+    const player = document.querySelector(".player-modal");
+    if (player?.requestFullscreen) player.requestFullscreen();
+  }
+
   return <div className="modal-layer" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
     <section className="player-modal">
       <button className="modal-close" onClick={onClose}>×</button>
       <div className="player-header">
-        <span className="kicker">NOW PLAYING</span>
-        <h2>{title || "Movie player"}</h2>
+        <div>
+          <span className="kicker">NOW PLAYING</span>
+          <h2>{title || "Movie player"}</h2>
+        </div>
+        <button className="player-fullscreen" onClick={openFullScreen}>⛶ Full screen</button>
       </div>
       <div className="player-frame">
         <iframe

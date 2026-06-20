@@ -54,11 +54,14 @@ main { width:min(1440px,100%); margin:auto; }
 .shelves { padding:35px 36px 80px; }.shelf { margin-top:45px; }.shelf:first-child { margin-top:0; }
 .shelf-heading { display:flex; align-items:center; justify-content:space-between; margin-bottom:17px; }.shelf-heading h2 { margin:0; font-family:Manrope; font-size:25px; letter-spacing:-.8px; }.shelf-heading button { border:0; background:none; color:#8e8e96; font-size:13px; }.shelf-heading button span { margin-left:5px; color:var(--red); }
 .movie-row { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(180px,1fr); gap:14px; overflow-x:auto; padding:4px 0 20px; scrollbar-width:none; scroll-snap-type:x mandatory; }.movie-row::-webkit-scrollbar { display:none; }
-.movie-card { min-width:0; scroll-snap-align:start; }.poster-button { position:relative; width:100%; aspect-ratio:2/3; padding:0; overflow:hidden; border:0; border-radius:11px; background:#18181d; box-shadow:0 15px 35px rgba(0,0,0,.25); }
+.movie-card { min-width:0; scroll-snap-align:start; }.poster-wrap { position:relative; }.poster-button { position:relative; width:100%; aspect-ratio:2/3; padding:0; overflow:hidden; border:0; border-radius:11px; background:#18181d; box-shadow:0 15px 35px rgba(0,0,0,.25); }
 .poster-button img { width:100%; height:100%; object-fit:cover; transition:transform .45s; }.movie-card:hover .poster-button img { transform:scale(1.04); }
 .poster-fallback { display:flex; flex-direction:column; justify-content:flex-end; width:100%; height:100%; padding:20px; background:linear-gradient(150deg,transparent 15%,rgba(0,0,0,.82)),radial-gradient(circle at 65% 20%,#ef6d6d,transparent 35%),linear-gradient(135deg,#252334,#633947); text-align:left; }.tone-blue .poster-fallback{background:linear-gradient(150deg,transparent,rgba(0,0,0,.85)),radial-gradient(circle at 70% 20%,#3878c9,transparent 35%),#1b2638}.tone-amber .poster-fallback{background:linear-gradient(150deg,transparent,rgba(0,0,0,.85)),radial-gradient(circle at 70% 20%,#c1823a,transparent 35%),#30251b}.tone-green .poster-fallback{background:linear-gradient(150deg,transparent,rgba(0,0,0,.85)),radial-gradient(circle at 70% 20%,#328c76,transparent 35%),#1b302b}.tone-pink .poster-fallback{background:linear-gradient(150deg,transparent,rgba(0,0,0,.85)),radial-gradient(circle at 70% 20%,#d2498f,transparent 35%),#33202e}
 .poster-fallback b { font-family:Manrope; font-size:26px; line-height:1; }.poster-fallback span { margin-top:10px; color:#bbb; font-size:9px; letter-spacing:1.4px; text-transform:uppercase; }
-.card-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; opacity:0; background:rgba(5,5,8,.55); backdrop-filter:blur(2px); transition:opacity .25s; }.movie-card:hover .card-overlay { opacity:1; }.card-overlay .play { display:grid; place-items:center; width:48px; height:48px; padding-left:3px; border-radius:50%; background:white; color:#111; }.card-overlay p { font-size:12px; }
+.card-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; opacity:0; background:rgba(5,5,8,.48); backdrop-filter:blur(2px); transition:opacity .25s; }.movie-card:hover .card-overlay { opacity:1; }.card-overlay p { margin:0 0 8px; font-size:12px; }.card-overlay span { color:white; font-size:12px; font-weight:800; }
+.card-play-overlay { position:absolute; left:10px; bottom:10px; z-index:3; display:inline-flex; align-items:center; gap:8px; min-height:38px; padding:0 14px; border:0; border-radius:7px; background:white; color:#111; font-size:14px; font-weight:800; box-shadow:0 14px 32px rgba(0,0,0,.35); }
+.card-play-overlay span { font-size:15px; }
+.card-play-overlay:hover { transform:translateY(-1px); background:#f1f1f1; }
 .card-caption { display:flex; justify-content:space-between; gap:8px; padding:12px 2px 0; }.card-caption h3 { overflow:hidden; margin:0; font-family:Manrope; font-size:15px; text-overflow:ellipsis; white-space:nowrap; }.card-caption p { margin:5px 0 0; color:#7f7f87; font-size:12px; text-transform:capitalize; }.card-caption>div { min-width:0; }.card-caption button { flex:0 0 auto; width:30px; height:30px; border:1px solid var(--line); border-radius:50%; background:#19191e; }.card-caption button.saved { border-color:#528b68; color:#7bd59e; }
 footer { display:flex; justify-content:space-between; align-items:center; gap:25px; padding:36px max(36px,calc((100% - 1368px)/2)); border-top:1px solid var(--line); color:#777; font-size:12px; } footer p { margin:0; } footer .logo { color:#ddd; }
 .modal-layer { position:fixed; z-index:80; inset:0; display:grid; place-items:center; padding:24px; overflow:auto; background:rgba(0,0,0,.78); backdrop-filter:blur(12px); animation:fade .2s; }
@@ -87,3 +90,14 @@ footer { display:flex; justify-content:space-between; align-items:center; gap:25
 .player-frame { position:relative; width:100%; aspect-ratio:16/9; background:#000; }
 .player-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
 @media(max-width:560px){.player-header{padding:18px 18px 10px}.player-header h2{font-size:20px}.player-modal{border-radius:14px}}
+
+.episode-picker { margin:0 0 22px; padding:18px; border:1px solid var(--line); border-radius:13px; background:#17171b; }
+.episode-picker h3 { margin:7px 0 14px; font-family:Manrope; font-size:20px; letter-spacing:-.4px; }
+.episode-picker>p { margin:12px 0 0; color:#888; font-size:13px; }
+.episode-controls { display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end; }
+.episode-controls label { display:grid; gap:7px; color:#9a9aa2; font-size:12px; font-weight:700; }
+.episode-controls select { height:46px; padding:0 12px; border:1px solid var(--line); border-radius:8px; outline:0; background:#202026; color:white; }
+.player-header { display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.player-fullscreen { min-height:40px; padding:0 14px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.08); color:white; font-weight:800; }
+.player-fullscreen:hover { background:rgba(255,255,255,.16); }
+@media(max-width:700px){.episode-controls{grid-template-columns:1fr}.player-header{align-items:flex-start;flex-direction:column}.player-fullscreen{width:100%}}
