@@ -1,6 +1,7 @@
 const imageBaseUrl = "https://image.tmdb.org/t/p/w500";
 const backdropBaseUrl = "https://image.tmdb.org/t/p/w780";
 const providerLogoBaseUrl = "https://image.tmdb.org/t/p/w92";
+const episodeStillBaseUrl = "https://image.tmdb.org/t/p/w500";
 
 export default async function handler(request, response) {
   const apiKey = process.env.TMDB_API_KEY;
@@ -37,6 +38,10 @@ export default async function handler(request, response) {
 
     if (mode === "details") {
       return response.status(200).json(await getDetails(apiKey, request.query));
+    }
+
+    if (mode === "season") {
+      return response.status(200).json(await getSeason(apiKey, request.query));
     }
 
     return response.status(400).json({ error: "Unsupported TMDB mode." });
@@ -179,6 +184,33 @@ async function getDetails(apiKey, query) {
       rent: normalizeProviders(providerData.rent || []),
       buy: normalizeProviders(providerData.buy || []),
     },
+  };
+}
+
+async function getSeason(apiKey, query) {
+  const { mediaType, tmdbId } = parseTmdbId(query.id);
+  const seasonNumber = Number.parseInt(String(query.season || ""), 10);
+
+  if (mediaType !== "series" || !tmdbId || !Number.isInteger(seasonNumber) || seasonNumber < 1) {
+    throw new Error("A valid series and season number are required.");
+  }
+
+  const tmdbUrl = createTmdbUrl(apiKey, `/tv/${tmdbId}/season/${seasonNumber}`);
+  const data = await fetchJson(tmdbUrl);
+
+  return {
+    season: data.season_number,
+    title: data.name || `Season ${seasonNumber}`,
+    overview: data.overview || "",
+    episodes: (data.episodes || []).map((episode) => ({
+      number: episode.episode_number,
+      title: episode.name || `Episode ${episode.episode_number}`,
+      overview: episode.overview || "",
+      released: episode.air_date || "Release date unavailable",
+      runtime: episode.runtime ? `${episode.runtime} min` : "Runtime unavailable",
+      rating: episode.vote_average ? episode.vote_average.toFixed(1) : "N/A",
+      still: episode.still_path ? `${episodeStillBaseUrl}${episode.still_path}` : "",
+    })),
   };
 }
 
