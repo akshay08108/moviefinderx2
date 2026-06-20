@@ -263,7 +263,7 @@ function App() {
           {visibleSections.map((section) => (
             <MovieShelf
               key={section.key} title={section.title} movies={section.movies}
-              favorites={favoriteIds} onDetails={openDetails} onFavorite={toggleFavorite} onWatch={watchNow}
+              favorites={favoriteIds} onDetails={openDetails} onFavorite={toggleFavorite}
             />
           ))}
         </div>
@@ -272,7 +272,7 @@ function App() {
       <footer><div className="logo"><b>M</b> MovieFinder</div><p>Find the story that stays with you.</p><span>Powered by TMDB</span></footer>
 
       {selected && <DetailsModal movie={{ ...selected, ...details }} loading={!details} onClose={() => setSelected(null)} onFavorite={toggleFavorite} saved={favoriteIds.has(selected.id)} />}
-      {showFavorites && <FavoritesModal movies={favorites} onClose={() => setShowFavorites(false)} onDetails={openDetails} onFavorite={toggleFavorite} onWatch={watchNow} favorites={favoriteIds} />}
+      {showFavorites && <FavoritesModal movies={favorites} onClose={() => setShowFavorites(false)} onDetails={openDetails} onFavorite={toggleFavorite} favorites={favoriteIds} />}
       {aiOpen && <AiModal prompt={aiPrompt} setPrompt={setAiPrompt} onSubmit={askAi} onClose={() => setAiOpen(false)} loading={loading} />}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onUser={(next) => { setUser(next); localStorage.setItem("movieFinderUser", JSON.stringify(next)); }} />}
       {playerUrl && <PlayerModal title={playerTitle} url={playerUrl} onClose={() => { setPlayerUrl(null); setPlayerTitle(""); }} />}
@@ -321,26 +321,22 @@ function Hero({ movie, index, count, onSelect, onWatch, onDetails, onFavorite, s
   </section>;
 }
 
-function MovieShelf({ title, movies, favorites, onDetails, onFavorite, onWatch }) {
+function MovieShelf({ title, movies, favorites, onDetails, onFavorite }) {
   return <section className="shelf" id="discover">
     <div className="shelf-heading"><h2>{title}</h2><button>View all <span>→</span></button></div>
     <div className="movie-row">
-      {movies.map((movie, index) => <MovieCard key={`${movie.id}-${index}`} movie={movie} saved={favorites.has(movie.id)} onDetails={onDetails} onFavorite={onFavorite} onWatch={onWatch} />)}
+      {movies.map((movie, index) => <MovieCard key={`${movie.id}-${index}`} movie={movie} saved={favorites.has(movie.id)} onDetails={onDetails} onFavorite={onFavorite} />)}
     </div>
   </section>;
 }
 
-function MovieCard({ movie, saved, onDetails, onFavorite, onWatch }) {
+function MovieCard({ movie, saved, onDetails, onFavorite }) {
   return <article className={`movie-card tone-${movie.tone || "blue"}`}>
     <button className="poster-button" onClick={() => onDetails(movie)} aria-label={`View ${movie.title}`}>
       {movie.poster && movie.poster !== "N/A" ? <img src={movie.poster} alt="" loading="lazy" /> : <div className="poster-fallback"><b>{movie.title}</b><span>MovieFinder original</span></div>}
       <div className="card-overlay"><span className="play">▶</span><p>{movie.year} · {movie.type}</p></div>
     </button>
-    <div className="card-caption">
-      <div><h3>{movie.title}</h3><p>{movie.year} · {movie.type}</p></div>
-      <button className={saved ? "saved" : ""} onClick={() => onFavorite(movie)}>{saved ? "✓" : "+"}</button>
-    </div>
-    <button className="card-watch" onClick={() => onWatch(movie)}>▶ Watch now</button>
+    <div className="card-caption"><div><h3>{movie.title}</h3><p>{movie.year} · {movie.type}</p></div><button className={saved ? "saved" : ""} onClick={() => onFavorite(movie)}>{saved ? "✓" : "+"}</button></div>
   </article>;
 }
 
@@ -383,9 +379,9 @@ function DetailsModal({ movie, loading, onClose, onFavorite, saved }) {
   </div>;
 }
 
-function FavoritesModal({ movies, onClose, onDetails, onFavorite, onWatch, favorites }) {
+function FavoritesModal({ movies, onClose, onDetails, onFavorite, favorites }) {
   return <div className="modal-layer"><section className="list-modal"><button className="modal-close" onClick={onClose}>×</button><span className="kicker">YOUR COLLECTION</span><h2>My list</h2>
-    {movies.length ? <div className="favorite-grid">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} saved={favorites.has(movie.id)} onDetails={(item) => { onClose(); onDetails(item); }} onFavorite={onFavorite} onWatch={(item) => { onClose(); onWatch(item); }} />)}</div> : <div className="empty-list">Your list is waiting for its first great story.</div>}
+    {movies.length ? <div className="favorite-grid">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} saved={favorites.has(movie.id)} onDetails={(item) => { onClose(); onDetails(item); }} onFavorite={onFavorite} />)}</div> : <div className="empty-list">Your list is waiting for its first great story.</div>}
   </section></div>;
 }
 
