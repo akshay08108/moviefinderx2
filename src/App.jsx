@@ -488,7 +488,6 @@ function PlayerModal({ title, url, onClose }) {
           src={url}
           title={title || "Movie player"}
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
           referrerPolicy="no-referrer"
           allowFullScreen
           webkitallowfullscreen="true"
