@@ -3,9 +3,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/tmdb", "destination": "/api/tmdb.js" },
-    { "source": "/api/player", "destination": "/api/player.js" },
-    { "source": "/api/recommend", "destination": "/api/recommend.js" },
-    { "source": "/api/auth", "destination": "/api/auth.js" }
+    {
+      "source": "/api/tmdb",
+      "destination": "/api/tmdb.js"
+    }
   ]
 }
