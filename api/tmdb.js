@@ -11,6 +11,8 @@ export default async function handler(request, response) {
     return response.status(500).json({ error: "Server is missing TMDB_API_KEY." });
   }
 
+  response.setHeader("Cache-Control", "s-maxage=21600, stale-while-revalidate=86400");
+
   try {
     if (mode === "search") {
       return response.status(200).json({
@@ -83,7 +85,7 @@ async function getRow(apiKey, query) {
   };
 
   if (row === "top") {
-    const tmdbUrl = createTmdbUrl(apiKey, "/trending/movie/week");
+    const tmdbUrl = createTmdbUrl(apiKey, "/trending/all/day");
     const data = await fetchJson(tmdbUrl);
     return normalizeResults(data.results || []);
   }
@@ -107,7 +109,7 @@ async function getRow(apiKey, query) {
 
 async function getRecent(apiKey) {
   const tmdbUrl = createTmdbUrl(apiKey, "/movie/now_playing");
-  tmdbUrl.searchParams.set("region", "US");
+  tmdbUrl.searchParams.set("region", "IN");
 
   const data = await fetchJson(tmdbUrl);
   return normalizeResults(data.results || []).slice(0, 8);
