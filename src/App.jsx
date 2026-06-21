@@ -174,7 +174,7 @@ function App() {
     }
   }
 
-  async function watchNow(movie, playback = {}) {
+  async function watchNow(movie) {
     setLoading(true);
     setStatus(`Starting ${movie.title}…`);
 
@@ -189,21 +189,16 @@ function App() {
       const params = new URLSearchParams({ type, id: String(tmdbId) });
 
       if (type === "tv") {
-        params.set("season", String(playback.season || 1));
-        params.set("episode", String(playback.episode || 1));
+        params.set("season", "1");
+        params.set("episode", "1");
       }
 
       const playUrl = `/api/player?${params.toString()}`;
 
-      if (window.innerWidth <= 768) {
-        window.open(playUrl, "_blank", "noopener,noreferrer");
-      } else {
-        const episodeLabel = type === "tv"
-          ? ` · S${playback.season || 1} E${playback.episode || 1}`
-          : "";
-        setPlayerTitle(`${movie.title}${episodeLabel}`);
-        setPlayerUrl(playUrl);
-      }
+      // Keep every player inside the sandboxed modal. Opening the provider as a
+      // top-level mobile tab would let it launch popups and redirect the page.
+      setPlayerTitle(movie.title);
+      setPlayerUrl(playUrl);
 
       setStatus(`Playing ${movie.title}`);
     } catch (error) {
@@ -221,13 +216,6 @@ function App() {
     localStorage.setItem("movieFavorites", JSON.stringify(next));
   }
 
-  function clearSearch() {
-    setQuery("");
-    setSuggestions([]);
-    setResults([]);
-    setStatus("");
-  }
-
   const visibleSections = results.length
     ? [{ key: "results", title: status || "Your results", movies: results }]
     : rows.map((row) => ({ ...row, movies: homeRows[row.key] || demoMovies }));
@@ -237,7 +225,6 @@ function App() {
       <div className={`progress ${loading ? "active" : ""}`} />
       <Header
         query={query} setQuery={setQuery} suggestions={suggestions} onSearch={search}
-        onClearSearch={clearSearch}
         onSelectSuggestion={(movie) => { setQuery(movie.title); setSuggestions([]); openDetails(movie); }}
         favorites={favorites.length} onFavorites={() => setShowFavorites(true)}
         onAi={() => setAiOpen(true)} onAuth={() => setAuthOpen(true)} user={user}
@@ -287,7 +274,7 @@ function App() {
         </div>
       </main>
 
-      <footer><div className="logo"><b>M</b> MovieFinder</div><div className="footer-message"><p>Find the story that stays with you.</p><small>Developed by Akshay@Codex</small></div><span>Powered by TMDB</span></footer>
+      <footer><div className="logo"><b>M</b> MovieFinder</div><p>Find the story that stays with you.</p><span>Powered by TMDB</span></footer>
 
       {selected && <DetailsModal movie={{ ...selected, ...details }} loading={!details} onClose={() => setSelected(null)} onFavorite={toggleFavorite} onWatch={watchNow} saved={favoriteIds.has(selected.id)} />}
       {showFavorites && <FavoritesModal movies={favorites} onClose={() => setShowFavorites(false)} onDetails={openDetails} onFavorite={toggleFavorite} onWatch={watchNow} favorites={favoriteIds} />}
@@ -298,13 +285,12 @@ function App() {
   );
 }
 
-function Header({ query, setQuery, suggestions, onSearch, onClearSearch, onSelectSuggestion, favorites, onFavorites, onAi, onAuth, user }) {
+function Header({ query, setQuery, suggestions, onSearch, onSelectSuggestion, favorites, onFavorites, onAi, onAuth, user }) {
   return <header className="topbar">
     <a className="logo" href="#top"><b>M</b><span>MovieFinder</span></a>
     <nav><a href="#discover">Discover</a><button onClick={onAi}>AI Concierge</button><button onClick={onFavorites}>My list <i>{favorites}</i></button></nav>
     <form className="nav-search" onSubmit={onSearch}>
       <span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search titles…" aria-label="Search movies" />
-      {query && <button className="search-clear" type="button" onClick={onClearSearch} aria-label="Clear search">Clear all</button>}
       {suggestions.length > 0 && <div className="suggestion-popover">
         {suggestions.map((movie) => <button type="button" key={movie.id} onClick={() => onSelectSuggestion(movie)}><span>{movie.title}</span><small>{movie.year}</small></button>)}
       </div>}
@@ -396,14 +382,14 @@ function DetailsModal({ movie, loading, onClose, onFavorite, onWatch, saved }) {
             {allProviders.length ? <div className="providers">{allProviders.map((provider) => <div key={provider.id}>{provider.logo ? <img src={provider.logo} alt="" /> : <b>{provider.name[0]}</b>}<span>{provider.name}</span></div>)}</div> : <p className="provider-empty">Streaming availability isn’t listed for this title yet.</p>}
             {providers.link && <a className="provider-watch" href={providers.link} target="_blank" rel="noreferrer">Watch now on a provider ↗</a>}
           </aside>
-          {movie.type === "series" && Array.isArray(movie.seasons) && movie.seasons.length > 0 && <SeriesBrowser movie={movie} onWatch={onWatch} />}
+          {movie.type === "series" && Array.isArray(movie.seasons) && movie.seasons.length > 0 && <SeriesBrowser movie={movie} />}
         </>}
       </div>
     </section>
   </div>;
 }
 
-function SeriesBrowser({ movie, onWatch }) {
+function SeriesBrowser({ movie }) {
   const firstSeason = String(movie.seasons?.[0]?.season || "1");
   const [season, setSeason] = useState(firstSeason);
   const [seasonData, setSeasonData] = useState(null);
@@ -452,7 +438,7 @@ function SeriesBrowser({ movie, onWatch }) {
         <div className="episode-copy">
           <div className="episode-title"><h4>{episode.title}</h4><span>TMDB {episode.rating}</span></div>
           <p>{episode.overview || "Episode description is unavailable."}</p>
-          <div className="episode-footer"><small>{episode.released} · {episode.runtime}</small><button className="episode-play" type="button" onClick={() => onWatch(movie, { season: Number(season), episode: episode.number })}>▶ Watch S{season} E{episode.number}</button></div>
+          <small>{episode.released} · {episode.runtime}</small>
         </div>
       </article>)}
     </div>}
@@ -484,8 +470,6 @@ function PlayerModal({ title, url, onClose }) {
       player.requestFullscreen();
     } else if (player?.webkitRequestFullscreen) {
       player.webkitRequestFullscreen();
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
     }
   }
 
@@ -504,6 +488,8 @@ function PlayerModal({ title, url, onClose }) {
           src={url}
           title={title || "Movie player"}
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+          referrerPolicy="no-referrer"
           allowFullScreen
           webkitallowfullscreen="true"
           mozallowfullscreen="true"
