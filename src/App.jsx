@@ -174,7 +174,7 @@ function App() {
     }
   }
 
-  async function watchNow(movie) {
+  async function watchNow(movie, playback = {}) {
     setLoading(true);
     setStatus(`Starting ${movie.title}…`);
 
@@ -189,15 +189,18 @@ function App() {
       const params = new URLSearchParams({ type, id: String(tmdbId) });
 
       if (type === "tv") {
-        params.set("season", "1");
-        params.set("episode", "1");
+        params.set("season", String(playback.season || 1));
+        params.set("episode", String(playback.episode || 1));
       }
 
       const playUrl = `/api/player?${params.toString()}`;
 
       // Keep every player inside the sandboxed modal. Opening the provider as a
       // top-level mobile tab would let it launch popups and redirect the page.
-      setPlayerTitle(movie.title);
+      const episodeLabel = type === "tv"
+        ? ` · S${playback.season || 1} E${playback.episode || 1}`
+        : "";
+      setPlayerTitle(`${movie.title}${episodeLabel}`);
       setPlayerUrl(playUrl);
 
       setStatus(`Playing ${movie.title}`);
@@ -382,14 +385,14 @@ function DetailsModal({ movie, loading, onClose, onFavorite, onWatch, saved }) {
             {allProviders.length ? <div className="providers">{allProviders.map((provider) => <div key={provider.id}>{provider.logo ? <img src={provider.logo} alt="" /> : <b>{provider.name[0]}</b>}<span>{provider.name}</span></div>)}</div> : <p className="provider-empty">Streaming availability isn’t listed for this title yet.</p>}
             {providers.link && <a className="provider-watch" href={providers.link} target="_blank" rel="noreferrer">Watch now on a provider ↗</a>}
           </aside>
-          {movie.type === "series" && Array.isArray(movie.seasons) && movie.seasons.length > 0 && <SeriesBrowser movie={movie} />}
+          {movie.type === "series" && Array.isArray(movie.seasons) && movie.seasons.length > 0 && <SeriesBrowser movie={movie} onWatch={onWatch} />}
         </>}
       </div>
     </section>
   </div>;
 }
 
-function SeriesBrowser({ movie }) {
+function SeriesBrowser({ movie, onWatch }) {
   const firstSeason = String(movie.seasons?.[0]?.season || "1");
   const [season, setSeason] = useState(firstSeason);
   const [seasonData, setSeasonData] = useState(null);
@@ -438,7 +441,17 @@ function SeriesBrowser({ movie }) {
         <div className="episode-copy">
           <div className="episode-title"><h4>{episode.title}</h4><span>TMDB {episode.rating}</span></div>
           <p>{episode.overview || "Episode description is unavailable."}</p>
-          <small>{episode.released} · {episode.runtime}</small>
+          <div className="episode-footer">
+            <small>{episode.released} · {episode.runtime}</small>
+            <button
+              className="episode-play"
+              type="button"
+              onClick={() => onWatch(movie, { season: Number(season), episode: episode.number })}
+              aria-label={`Watch ${movie.title}, season ${season}, episode ${episode.number}`}
+            >
+              ▶ Watch now
+            </button>
+          </div>
         </div>
       </article>)}
     </div>}
