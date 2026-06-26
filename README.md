@@ -6,10 +6,12 @@ A cinematic React movie and TV discovery experience powered by TMDB, OpenAI, and
 
 - Responsive React interface built with Vite
 - Featured movie hero and horizontal discovery shelves
+- Netflix-style Top 10 recommendations and full category browsing
 - Live TMDB search and suggestions
 - Genre, language, and movie/series filters
 - AI-powered natural-language recommendations
 - Detailed cast, seasons, trailers, and ratings
+- Streaming-language visibility before playback
 - Country-aware **Where to Watch** streaming providers
 - Local favorites collection
 - Optional Supabase email-code authentication
