@@ -1,22 +1,62 @@
 import { useEffect, useMemo, useState } from "react";
 
 const rows = [
+  { key: "top10", title: "Top 10 recommendations" },
   { key: "top", title: "Trending now" },
+  { key: "english", title: "English hits" },
   { key: "hindi", title: "Hindi cinema" },
   { key: "telugu", title: "Telugu favorites" },
   { key: "tamil", title: "Tamil stories" },
+  { key: "malayalam", title: "Malayalam gems" },
+  { key: "kannada", title: "Kannada picks" },
   { key: "action", title: "Adrenaline rush" },
   { key: "comedy", title: "Easy laughs" },
+  { key: "drama", title: "Prestige drama" },
+  { key: "romance", title: "Romance lane" },
+  { key: "thriller", title: "Thriller nights" },
+  { key: "horror", title: "Horror vault" },
+  { key: "scifi", title: "Sci-fi worlds" },
 ];
 
 const demoMovies = [
-  { id: "movie:101", title: "The Last Horizon", year: "2026", type: "movie", tone: "violet" },
-  { id: "movie:102", title: "Midnight Signal", year: "2025", type: "movie", tone: "blue" },
-  { id: "series:103", title: "The Long Way Home", year: "2026", type: "series", tone: "amber" },
-  { id: "movie:104", title: "After the Monsoon", year: "2025", type: "movie", tone: "green" },
-  { id: "movie:105", title: "Neon City", year: "2026", type: "movie", tone: "pink" },
-  { id: "series:106", title: "Parallel Lines", year: "2024", type: "series", tone: "indigo" },
+  { id: "movie:101", title: "The Last Horizon", year: "2026", type: "movie", tone: "violet", language: "English" },
+  { id: "movie:102", title: "Midnight Signal", year: "2025", type: "movie", tone: "blue", language: "English" },
+  { id: "series:103", title: "The Long Way Home", year: "2026", type: "series", tone: "amber", language: "Hindi, English" },
+  { id: "movie:104", title: "After the Monsoon", year: "2025", type: "movie", tone: "green", language: "Malayalam" },
+  { id: "movie:105", title: "Neon City", year: "2026", type: "movie", tone: "pink", language: "Tamil, Telugu" },
+  { id: "series:106", title: "Parallel Lines", year: "2024", type: "series", tone: "indigo", language: "Kannada" },
+  { id: "movie:107", title: "Borderless", year: "2025", type: "movie", tone: "blue", language: "Hindi, Tamil" },
+  { id: "movie:108", title: "The Laugh Track", year: "2024", type: "movie", tone: "amber", language: "Telugu" },
+  { id: "series:109", title: "Night Market", year: "2026", type: "series", tone: "green", language: "Korean, English" },
+  { id: "movie:110", title: "Signal Fire", year: "2025", type: "movie", tone: "pink", language: "English, Hindi" },
 ];
+
+const categoryFallbacks = {
+  english: "English",
+  hindi: "Hindi",
+  telugu: "Telugu",
+  tamil: "Tamil",
+  malayalam: "Malayalam",
+  kannada: "Kannada",
+  action: "English",
+  comedy: "Telugu",
+  drama: "Hindi",
+  romance: "Tamil",
+  thriller: "Korean",
+  horror: "English",
+  scifi: "English",
+};
+
+function getDemoMoviesForCategory(key) {
+  if (key === "top10") return demoMovies.slice(0, 10);
+
+  const language = categoryFallbacks[key];
+  if (!language) return demoMovies;
+
+  const matching = demoMovies.filter((movie) => movie.language?.includes(language));
+  const rest = demoMovies.filter((movie) => !movie.language?.includes(language));
+  return [...matching, ...rest];
+}
 
 const genres = [
   ["", "All genres"], ["28", "Action"], ["12", "Adventure"], ["16", "Animation"],
@@ -26,8 +66,30 @@ const genres = [
 
 const languages = [
   ["", "All languages"], ["en", "English"], ["hi", "Hindi"], ["te", "Telugu"],
-  ["ta", "Tamil"], ["ml", "Malayalam"], ["ko", "Korean"], ["ja", "Japanese"],
+  ["ta", "Tamil"], ["ml", "Malayalam"], ["kn", "Kannada"], ["bn", "Bengali"],
+  ["mr", "Marathi"], ["ko", "Korean"], ["ja", "Japanese"],
 ];
+
+function getStreamingLanguages(movie) {
+  const value = movie?.language || movie?.streamLanguages || movie?.originalLanguage || "";
+  return String(value)
+    .split(",")
+    .map((language) => language.trim())
+    .filter((language) => language && language !== "N/A" && language !== "—");
+}
+
+function formatStreamingLanguages(movie) {
+  const languageList = getStreamingLanguages(movie);
+  return languageList.length ? languageList.join(", ") : "Language details unavailable";
+}
+
+function getTmdbId(movie) {
+  return movie?.tmdbId || String(movie?.id || "").split(":").pop();
+}
+
+function hasValidTmdbId(movie) {
+  return /^\d+$/.test(String(getTmdbId(movie) || ""));
+}
 
 async function api(path, options) {
   const response = await fetch(path, options);
@@ -68,15 +130,21 @@ function App() {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("movieFinderUser") || "null"));
   const [playerUrl, setPlayerUrl] = useState(null);
   const [playerTitle, setPlayerTitle] = useState("");
+  const [playerLanguages, setPlayerLanguages] = useState("");
   const [pendingPlayback, setPendingPlayback] = useState(null);
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [activeCategoryKey, setActiveCategoryKey] = useState(rows[0].key);
+  const [browseMovies, setBrowseMovies] = useState({});
+  const [browseLoadingKey, setBrowseLoadingKey] = useState("");
 
   useEffect(() => {
     Promise.all(rows.map(async ({ key }) => {
       try {
-        const data = await api(`/api/tmdb?mode=row&row=${key}`);
-        return [key, data.results?.slice(0, 12) || []];
+        const limit = key === "top10" ? 10 : 16;
+        const data = await api(`/api/tmdb?mode=row&row=${key}&limit=${limit}`);
+        return [key, data.results?.slice(0, limit) || []];
       } catch {
-        return [key, demoMovies];
+        return [key, getDemoMoviesForCategory(key)];
       }
     })).then((entries) => setHomeRows(Object.fromEntries(entries)));
 
@@ -178,8 +246,25 @@ function App() {
     }
   }
 
-  function watchNow(movie, playback = {}) {
-    setPendingPlayback({ movie, playback });
+  async function watchNow(movie, playback = {}) {
+    if (getStreamingLanguages(movie).length || !hasValidTmdbId(movie)) {
+      setPendingPlayback({ movie, playback });
+      return;
+    }
+
+    setLoading(true);
+    setStatus(`Checking streaming languages for ${movie.title}…`);
+
+    try {
+      const data = await api(`/api/tmdb?mode=details&id=${encodeURIComponent(movie.id)}&region=IN`);
+      setPendingPlayback({ movie: { ...movie, ...data }, playback });
+      setStatus("");
+    } catch {
+      setPendingPlayback({ movie, playback });
+      setStatus("Language details are unavailable for this title right now.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function startPlayback() {
@@ -190,7 +275,7 @@ function App() {
     setStatus(`Starting ${movie.title}…`);
 
     try {
-      const tmdbId = movie.tmdbId || String(movie.id || "").split(":").pop();
+      const tmdbId = getTmdbId(movie);
 
       if (!tmdbId || !/^\d+$/.test(String(tmdbId))) {
         throw new Error("This title does not have a valid TMDB ID yet. Search a live movie and try again.");
@@ -212,6 +297,7 @@ function App() {
         ? ` · S${playback.season || 1} E${playback.episode || 1}`
         : "";
       setPlayerTitle(`${movie.title}${episodeLabel}`);
+      setPlayerLanguages(formatStreamingLanguages(movie));
       setPlayerUrl(playUrl);
 
       setStatus(`Playing ${movie.title}`);
@@ -233,6 +319,33 @@ function App() {
     setFeaturedIndex(0);
   }
 
+  async function openCategoryBrowser(key) {
+    setBrowseOpen(true);
+    setActiveCategoryKey(key);
+    setBrowseMovies((current) => ({
+      ...current,
+      [key]: current[key] || homeRows[key] || getDemoMoviesForCategory(key),
+    }));
+
+    const limit = key === "top10" ? 10 : 40;
+    setBrowseLoadingKey(key);
+
+    try {
+      const data = await api(`/api/tmdb?mode=row&row=${key}&limit=${limit}`);
+      setBrowseMovies((current) => ({
+        ...current,
+        [key]: data.results?.length ? data.results : current[key] || [],
+      }));
+    } catch {
+      setBrowseMovies((current) => ({
+        ...current,
+        [key]: current[key] || homeRows[key] || getDemoMoviesForCategory(key),
+      }));
+    } finally {
+      setBrowseLoadingKey("");
+    }
+  }
+
   function toggleFavorite(movie) {
     const next = favoriteIds.has(movie.id)
       ? favorites.filter((item) => item.id !== movie.id)
@@ -243,7 +356,10 @@ function App() {
 
   const visibleSections = results.length
     ? [{ key: "results", title: status || "Your results", movies: results }]
-    : rows.map((row) => ({ ...row, movies: homeRows[row.key] || demoMovies }));
+    : rows.map((row) => ({
+      ...row,
+      movies: homeRows[row.key] || getDemoMoviesForCategory(row.key),
+    }));
 
   return (
     <div className="site-shell">
@@ -293,11 +409,14 @@ function App() {
         <div className="shelves">
           {visibleSections.map((section) => (
             <MovieShelf
-              key={section.key} title={section.title} movies={section.movies}
+              key={section.key} section={section} movies={section.movies}
               favorites={favoriteIds} onDetails={openDetails} onFavorite={toggleFavorite} onWatch={watchNow}
+              onViewAll={section.key === "results" ? null : openCategoryBrowser}
             />
           ))}
         </div>
+
+        <AboutSection />
       </main>
 
       <footer><div className="logo"><b>M</b> MovieFinder</div><p>Find the story that stays with you.</p><span>Akshay@Codex</span></footer>
@@ -306,8 +425,21 @@ function App() {
       {showFavorites && <FavoritesModal movies={favorites} onClose={() => setShowFavorites(false)} onDetails={openDetails} onFavorite={toggleFavorite} onWatch={watchNow} favorites={favoriteIds} />}
       {aiOpen && <AiModal prompt={aiPrompt} setPrompt={setAiPrompt} onSubmit={askAi} onClose={() => setAiOpen(false)} loading={loading} />}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} onUser={(next) => { setUser(next); localStorage.setItem("movieFinderUser", JSON.stringify(next)); }} />}
-      {pendingPlayback && <StreamDisclaimer title={pendingPlayback.movie.title} onCancel={() => setPendingPlayback(null)} onContinue={startPlayback} />}
-      {playerUrl && <PlayerModal title={playerTitle} url={playerUrl} onClose={() => { setPlayerUrl(null); setPlayerTitle(""); }} />}
+      {browseOpen && <AllCategoriesModal
+        rows={rows}
+        homeRows={homeRows}
+        moviesByCategory={browseMovies}
+        activeKey={activeCategoryKey}
+        loadingKey={browseLoadingKey}
+        favorites={favoriteIds}
+        onCategoryChange={openCategoryBrowser}
+        onClose={() => setBrowseOpen(false)}
+        onDetails={openDetails}
+        onFavorite={toggleFavorite}
+        onWatch={watchNow}
+      />}
+      {pendingPlayback && <StreamDisclaimer movie={pendingPlayback.movie} onCancel={() => setPendingPlayback(null)} onContinue={startPlayback} />}
+      {playerUrl && <PlayerModal title={playerTitle} languages={playerLanguages} url={playerUrl} onClose={() => { setPlayerUrl(null); setPlayerTitle(""); setPlayerLanguages(""); }} />}
     </div>
   );
 }
@@ -315,7 +447,7 @@ function App() {
 function Header({ query, setQuery, suggestions, onSearch, onSelectSuggestion, favorites, onFavorites, onAi, onAuth, user }) {
   return <header className="topbar">
     <a className="logo" href="#top"><b>M</b><span>MovieFinder</span></a>
-    <nav><a href="#discover">Discover</a><button onClick={onAi}>AI Concierge</button><button onClick={onFavorites}>My list <i>{favorites}</i></button></nav>
+    <nav><a href="#discover">Discover</a><a href="#about">About us</a><button onClick={onAi}>AI Concierge</button><button onClick={onFavorites}>My list <i>{favorites}</i></button></nav>
     <form className="nav-search" onSubmit={onSearch}>
       <span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search titles…" aria-label="Search movies" />
       {suggestions.length > 0 && <div className="suggestion-popover">
@@ -353,27 +485,44 @@ function Hero({ movie, index, count, onSelect, onWatch, onDetails, onFavorite, s
   </section>;
 }
 
-function MovieShelf({ title, movies, favorites, onDetails, onFavorite, onWatch }) {
-  const isTrending = title === "Trending now";
-  return <section className="shelf" id="discover">
-    <div className="shelf-heading"><h2>{title}{isTrending && <span className="live-pill">LIVE</span>}</h2><button>View all <span>→</span></button></div>
-    <div className="movie-row">
-      {movies.map((movie, index) => <MovieCard key={`${movie.id}-${index}`} movie={movie} rank={isTrending ? index + 1 : null} saved={favorites.has(movie.id)} onDetails={onDetails} onFavorite={onFavorite} onWatch={onWatch} />)}
+function MovieShelf({ section, movies, favorites, onDetails, onFavorite, onWatch, onViewAll }) {
+  const isTrending = section.key === "top";
+  const isTopTen = section.key === "top10";
+
+  return <section className="shelf" id={section.key === "top10" ? "discover" : `category-${section.key}`}>
+    <div className="shelf-heading">
+      <h2>{section.title}{isTrending && <span className="live-pill">LIVE</span>}{isTopTen && <span className="live-pill top10-pill">TOP 10</span>}</h2>
+      {onViewAll && <button type="button" onClick={() => onViewAll(section.key)}>View all <span>→</span></button>}
+    </div>
+    <div className={`movie-row ${isTopTen ? "top-ten-row" : ""}`}>
+      {movies.map((movie, index) => <MovieCard
+        key={`${movie.id}-${index}`}
+        movie={movie}
+        rank={isTrending || isTopTen ? index + 1 : null}
+        topTen={isTopTen}
+        saved={favorites.has(movie.id)}
+        onDetails={onDetails}
+        onFavorite={onFavorite}
+        onWatch={onWatch}
+      />)}
     </div>
   </section>;
 }
 
-function MovieCard({ movie, rank, saved, onDetails, onFavorite, onWatch }) {
-  return <article className={`movie-card tone-${movie.tone || "blue"}`}>
+function MovieCard({ movie, rank, topTen = false, saved, onDetails, onFavorite, onWatch }) {
+  const [primaryLanguage] = getStreamingLanguages(movie);
+
+  return <article className={`movie-card tone-${movie.tone || "blue"} ${topTen ? "top-ten-card" : ""}`}>
+    {topTen && rank && <span className="top-ten-number">{rank}</span>}
     <div className="poster-wrap">
-      {rank && <span className="trend-rank">#{rank} Trending</span>}
+      {rank && !topTen && <span className="trend-rank">#{rank} Trending</span>}
       <button className="poster-button" onClick={() => onDetails(movie)} aria-label={`View ${movie.title}`}>
         {movie.poster && movie.poster !== "N/A" ? <img src={movie.poster} alt="" loading="lazy" /> : <div className="poster-fallback"><b>{movie.title}</b><span>MovieFinder original</span></div>}
         <div className="card-overlay"><span className="play">▶</span><p>{movie.year} · {movie.type}</p></div>
       </button>
       <button className="card-watch-now" onClick={() => onWatch(movie)} type="button">▶ Watch Now</button>
     </div>
-    <div className="card-caption"><div><h3>{movie.title}</h3><p>{movie.year} · {movie.type}</p></div><button className={saved ? "saved" : ""} onClick={() => onFavorite(movie)}>{saved ? "✓" : "+"}</button></div>
+    <div className="card-caption"><div><h3>{movie.title}</h3><p>{movie.year} · {movie.type}{primaryLanguage ? ` · ${primaryLanguage}` : ""}</p></div><button className={saved ? "saved" : ""} onClick={() => onFavorite(movie)}>{saved ? "✓" : "+"}</button></div>
   </article>;
 }
 
@@ -381,6 +530,8 @@ function DetailsModal({ movie, loading, onClose, onFavorite, onWatch, saved }) {
   const providers = movie.watchProviders || {};
   const allProviders = [...(providers.stream || []), ...(providers.rent || []), ...(providers.buy || [])]
     .filter((provider, index, array) => array.findIndex((item) => item.id === provider.id) === index);
+  const streamingLanguages = getStreamingLanguages(movie);
+
   return <div className="modal-layer" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
     <section className="details-modal">
       <button className="modal-close" onClick={onClose}>×</button>
@@ -409,6 +560,10 @@ function DetailsModal({ movie, loading, onClose, onFavorite, onWatch, saved }) {
           </div><dl><div><dt>Cast</dt><dd>{movie.actors || "Details unavailable"}</dd></div><div><dt>Director / Creator</dt><dd>{movie.director || "Details unavailable"}</dd></div></dl></div>
           <aside className="watch-panel"><span className="kicker">WHERE TO WATCH · INDIA</span><h3>Available on</h3>
             {allProviders.length ? <div className="providers">{allProviders.map((provider) => <div key={provider.id}>{provider.logo ? <img src={provider.logo} alt="" /> : <b>{provider.name[0]}</b>}<span>{provider.name}</span></div>)}</div> : <p className="provider-empty">Streaming availability isn’t listed for this title yet.</p>}
+            <div className="language-panel">
+              <span>Streaming languages</span>
+              <strong>{streamingLanguages.length ? streamingLanguages.join(", ") : "Not listed yet"}</strong>
+            </div>
             {providers.link && <a className="provider-watch" href={providers.link} target="_blank" rel="noreferrer">Watch now on a provider ↗</a>}
           </aside>
           {movie.type === "series" && Array.isArray(movie.seasons) && movie.seasons.length > 0 && <SeriesBrowser movie={movie} onWatch={onWatch} />}
@@ -490,20 +645,82 @@ function FavoritesModal({ movies, onClose, onDetails, onFavorite, onWatch, favor
   </section></div>;
 }
 
+function AllCategoriesModal({ rows, homeRows, moviesByCategory, activeKey, loadingKey, favorites, onCategoryChange, onClose, onDetails, onFavorite, onWatch }) {
+  const activeRow = rows.find((row) => row.key === activeKey) || rows[0];
+  const movies = moviesByCategory[activeRow.key] || homeRows[activeRow.key] || getDemoMoviesForCategory(activeRow.key);
+  const isTopTen = activeRow.key === "top10";
+
+  return <div className="modal-layer" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="category-modal">
+      <button className="modal-close" onClick={onClose}>×</button>
+      <div className="category-modal-header">
+        <span className="kicker">ALL CATEGORIES</span>
+        <h2>{activeRow.title}</h2>
+        <p>{isTopTen ? "The ten strongest picks for instant movie-night browsing." : "Browse a full card grid for this category."}</p>
+      </div>
+      <div className="category-tabs" aria-label="Movie categories">
+        {rows.map((row) => <button
+          key={row.key}
+          type="button"
+          className={row.key === activeRow.key ? "active" : ""}
+          onClick={() => onCategoryChange(row.key)}
+        >
+          {row.title}
+        </button>)}
+      </div>
+      {loadingKey === activeRow.key && <div className="category-loading">Loading more cards…</div>}
+      <div className={`category-grid ${isTopTen ? "category-grid-top10" : ""}`}>
+        {movies.map((movie, index) => <MovieCard
+          key={`${activeRow.key}-${movie.id}-${index}`}
+          movie={movie}
+          rank={isTopTen ? index + 1 : null}
+          topTen={isTopTen}
+          saved={favorites.has(movie.id)}
+          onDetails={onDetails}
+          onFavorite={onFavorite}
+          onWatch={onWatch}
+        />)}
+      </div>
+    </section>
+  </div>;
+}
+
+function AboutSection() {
+  return <section id="about" className="about-us">
+    <div>
+      <span className="kicker">ABOUT US</span>
+      <h2>MovieFinder is built for fast, confident watch decisions.</h2>
+    </div>
+    <p>We combine live movie data, AI discovery, regional categories, provider availability, trailers, favorites, and streaming-language details so every title feels easier to choose before you press play.</p>
+    <div className="about-stats">
+      <span><strong>Top 10</strong> daily picks</span>
+      <span><strong>15</strong> browse categories</span>
+      <span><strong>Languages</strong> before streaming</span>
+    </div>
+  </section>;
+}
+
 function AiModal({ prompt, setPrompt, onSubmit, onClose, loading }) {
   return <div className="modal-layer"><section className="ai-modal"><button className="modal-close" onClick={onClose}>×</button><div className="ai-orb">✦</div><span className="kicker">AI CONCIERGE</span><h2>Tell us the vibe.</h2><p>Describe a mood, language, occasion, or the kind of story you want tonight.</p>
     <form onSubmit={onSubmit}><textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="A clever Hindi thriller for a rainy night…" maxLength="400" autoFocus /><button className="primary" disabled={loading}>{loading ? "Curating…" : "Find my movie ✦"}</button></form>
   </section></div>;
 }
 
-function StreamDisclaimer({ title, onCancel, onContinue }) {
+function StreamDisclaimer({ movie, onCancel, onContinue }) {
+  const languages = formatStreamingLanguages(movie);
+
   return <div className="modal-layer" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
     <section className="stream-disclaimer" role="dialog" aria-modal="true" aria-labelledby="stream-disclaimer-title">
       <div className="notice-icon">!</div>
       <span className="kicker">BEFORE YOU WATCH</span>
       <h2 id="stream-disclaimer-title">One quick streaming note</h2>
       <p>Please disable adblocker till stream starts and enable when stream starts.</p>
-      <small>You’re about to open <strong>{title}</strong>.</small>
+      <div className="stream-language-card">
+        <span>Streaming languages</span>
+        <strong>{languages}</strong>
+        <small>Provider audio and subtitle menus can vary by region.</small>
+      </div>
+      <small>You’re about to open <strong>{movie.title}</strong>.</small>
       <div className="notice-actions">
         <button className="glass" type="button" onClick={onCancel}>Cancel</button>
         <button className="primary" type="button" onClick={onContinue}>Continue to stream ▶</button>
@@ -512,7 +729,7 @@ function StreamDisclaimer({ title, onCancel, onContinue }) {
   </div>;
 }
 
-function PlayerModal({ title, url, onClose }) {
+function PlayerModal({ title, languages, url, onClose }) {
   function openFullscreen() {
     const player = document.querySelector(".player-modal");
     const iframe = document.querySelector(".player-frame iframe");
@@ -535,6 +752,7 @@ function PlayerModal({ title, url, onClose }) {
         <div>
           <span className="kicker">NOW PLAYING</span>
           <h2>{title || "Movie player"}</h2>
+          <p className="player-languages">Languages: {languages || "Not listed"}</p>
         </div>
         <button className="player-fullscreen" onClick={openFullscreen}>⛶ Full screen</button>
       </div>
