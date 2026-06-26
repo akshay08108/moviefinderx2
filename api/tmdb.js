@@ -73,21 +73,33 @@ async function searchMulti(apiKey, query) {
 
 async function getRow(apiKey, query) {
   const row = String(query.row || "").trim();
+  const limit = getLimit(query.limit, row === "top10" ? 10 : 20);
   const genreMap = {
     action: "28",
     comedy: "35",
     drama: "18",
+    romance: "10749",
+    thriller: "53",
+    horror: "27",
+    scifi: "878",
   };
   const languageMap = {
+    english: "en",
     hindi: "hi",
     telugu: "te",
     tamil: "ta",
+    malayalam: "ml",
+    kannada: "kn",
   };
+
+  if (row === "top10") {
+    const tmdbUrl = createTmdbUrl(apiKey, "/trending/movie/week");
+    return normalizeResults(await fetchPagedResults(tmdbUrl, limit)).slice(0, 10);
+  }
 
   if (row === "top") {
     const tmdbUrl = createTmdbUrl(apiKey, "/trending/all/day");
-    const data = await fetchJson(tmdbUrl);
-    return normalizeResults(data.results || []);
+    return normalizeResults(await fetchPagedResults(tmdbUrl, limit));
   }
 
   const tmdbUrl = createTmdbUrl(apiKey, "/discover/movie");
@@ -103,8 +115,7 @@ async function getRow(apiKey, query) {
     tmdbUrl.searchParams.set("with_genres", genreMap[row]);
   }
 
-  const data = await fetchJson(tmdbUrl);
-  return normalizeResults(data.results || []);
+  return normalizeResults(await fetchPagedResults(tmdbUrl, limit));
 }
 
 async function getRecent(apiKey) {
@@ -257,6 +268,7 @@ function normalizeResults(results) {
         type,
         poster: getPoster(item.poster_path),
         backdrop: getBackdrop(item.backdrop_path),
+        language: getLanguageName(item.original_language),
       };
     });
 }
@@ -287,6 +299,46 @@ function getPoster(path) {
 
 function getBackdrop(path) {
   return path ? `${backdropBaseUrl}${path}` : "";
+}
+
+function getLanguageName(code) {
+  const languages = {
+    en: "English",
+    hi: "Hindi",
+    te: "Telugu",
+    ta: "Tamil",
+    ml: "Malayalam",
+    kn: "Kannada",
+    bn: "Bengali",
+    mr: "Marathi",
+    ko: "Korean",
+    ja: "Japanese",
+  };
+
+  return languages[String(code || "").toLowerCase()] || "";
+}
+
+function getLimit(value, fallback) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(Math.max(parsed, 1), 60);
+}
+
+async function fetchPagedResults(url, limit) {
+  const results = [];
+  const pageCount = Math.min(Math.ceil(limit / 20), 3);
+
+  for (let page = 1; page <= pageCount; page += 1) {
+    url.searchParams.set("page", String(page));
+    const data = await fetchJson(url);
+    results.push(...(data.results || []));
+
+    if (!data.results?.length || page >= (data.total_pages || 1)) {
+      break;
+    }
+  }
+
+  return results.slice(0, limit);
 }
 
 function getRuntime(data, mediaType) {

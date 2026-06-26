@@ -157,6 +157,7 @@ async function discoverTitles(apiKey, preferences) {
     backdrop: item.backdrop_path ? `${backdropBaseUrl}${item.backdrop_path}` : "",
     plot: item.overview || "",
     imdbRating: item.vote_average ? item.vote_average.toFixed(1) : "N/A",
+    language: getLanguageName(item.original_language),
   }));
 }
 
@@ -173,4 +174,21 @@ async function fetchTmdb(url) {
 
 function getYear(date) {
   return date ? String(date).slice(0, 4) : "N/A";
+}
+
+function getLanguageName(code) {
+  const languages = {
+    en: "English",
+    hi: "Hindi",
+    te: "Telugu",
+    ta: "Tamil",
+    ml: "Malayalam",
+    kn: "Kannada",
+    bn: "Bengali",
+    mr: "Marathi",
+    ko: "Korean",
+    ja: "Japanese",
+  };
+
+  return languages[String(code || "").toLowerCase()] || "";
 }
