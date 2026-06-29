@@ -13,9 +13,11 @@ export default function handler(req, res) {
 
   const baseUrl = "https://api.codespecters.com/embed";
   const safeType = type === "tv" || type === "series" ? "tv" : "movie";
+  const safeSeason = /^\d+$/.test(String(season)) ? String(season) : "1";
+  const safeEpisode = /^\d+$/.test(String(episode)) ? String(episode) : "1";
 
   const embedUrl = safeType === "tv"
-    ? `${baseUrl}/tv/${id}/${season}/${episode}?apikey=${encodeURIComponent(apiKey)}`
+    ? `${baseUrl}/tv/${id}/${safeSeason}/${safeEpisode}?apikey=${encodeURIComponent(apiKey)}`
     : `${baseUrl}/movie/${id}?apikey=${encodeURIComponent(apiKey)}`;
 
   res.setHeader("Cache-Control", "no-store");
