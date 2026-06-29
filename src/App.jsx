@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const rows = [
   { key: "top10", title: "Top 10 recommendations" },
@@ -128,9 +128,6 @@ function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("movieFinderUser") || "null"));
-  const [playerUrl, setPlayerUrl] = useState(null);
-  const [playerTitle, setPlayerTitle] = useState("");
-  const [playerLanguages, setPlayerLanguages] = useState("");
   const [pendingPlayback, setPendingPlayback] = useState(null);
   const [browseOpen, setBrowseOpen] = useState(false);
   const [activeCategoryKey, setActiveCategoryKey] = useState(rows[0].key);
@@ -289,18 +286,24 @@ function App() {
         params.set("episode", String(playback.episode || 1));
       }
 
-      const playUrl = `/api/player?${params.toString()}`;
-
-      // Keep every player inside the sandboxed modal. Opening the provider as a
-      // top-level mobile tab would let it launch popups and redirect the page.
       const episodeLabel = type === "tv"
         ? ` · S${playback.season || 1} E${playback.episode || 1}`
         : "";
-      setPlayerTitle(`${movie.title}${episodeLabel}`);
-      setPlayerLanguages(formatStreamingLanguages(movie));
-      setPlayerUrl(playUrl);
+      params.set("watch", "1");
+      params.set("title", `${movie.title}${episodeLabel}`);
+      params.set("languages", formatStreamingLanguages(movie));
 
-      setStatus(`Playing ${movie.title}`);
+      // Open the player while this click still has browser user activation so
+      // desktop and mobile popup blockers recognize it as user initiated.
+      const watchUrl = `${window.location.origin}/?${params.toString()}`;
+      const playerTab = window.open(watchUrl, "_blank");
+
+      if (playerTab) {
+        playerTab.opener = null;
+        setStatus(`Opened ${movie.title} in a new player tab.`);
+      } else {
+        window.location.assign(watchUrl);
+      }
     } catch (error) {
       setStatus(error.message);
     } finally {
@@ -439,7 +442,6 @@ function App() {
         onWatch={watchNow}
       />}
       {pendingPlayback && <StreamDisclaimer movie={pendingPlayback.movie} onCancel={() => setPendingPlayback(null)} onContinue={startPlayback} />}
-      {playerUrl && <PlayerModal title={playerTitle} languages={playerLanguages} url={playerUrl} onClose={() => { setPlayerUrl(null); setPlayerTitle(""); setPlayerLanguages(""); }} />}
     </div>
   );
 }
@@ -729,46 +731,61 @@ function StreamDisclaimer({ movie, onCancel, onContinue }) {
   </div>;
 }
 
-function PlayerModal({ title, languages, url, onClose }) {
-  function openFullscreen() {
-    const player = document.querySelector(".player-modal");
-    const iframe = document.querySelector(".player-frame iframe");
+export function PlayerPage() {
+  const playerPageRef = useRef(null);
+  const query = useMemo(() => new URLSearchParams(window.location.search), []);
+  const id = query.get("id") || "";
+  const type = query.get("type") === "tv" ? "tv" : "movie";
+  const title = query.get("title") || "Movie player";
+  const languages = query.get("languages") || "Not listed";
+  const isValid = /^\d+$/.test(id);
+  const playerParams = new URLSearchParams({ type, id });
 
-    if (iframe?.requestFullscreen) {
-      iframe.requestFullscreen();
-    } else if (iframe?.webkitRequestFullscreen) {
-      iframe.webkitRequestFullscreen();
-    } else if (player?.requestFullscreen) {
-      player.requestFullscreen();
-    } else if (player?.webkitRequestFullscreen) {
-      player.webkitRequestFullscreen();
+  if (type === "tv") {
+    const season = query.get("season") || "1";
+    const episode = query.get("episode") || "1";
+    playerParams.set("season", /^\d+$/.test(season) ? season : "1");
+    playerParams.set("episode", /^\d+$/.test(episode) ? episode : "1");
+  }
+
+  useEffect(() => {
+    document.title = `${title} | MovieFinder`;
+  }, [title]);
+
+  async function openFullscreen() {
+    const page = playerPageRef.current;
+    try {
+      if (page?.requestFullscreen) await page.requestFullscreen();
+      else if (page?.webkitRequestFullscreen) page.webkitRequestFullscreen();
+    } catch {
+      // Mobile Safari may only allow the provider's own video fullscreen button.
     }
   }
 
-  return <div className="modal-layer" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-    <section className="player-modal">
-      <button className="modal-close" onClick={onClose}>×</button>
-      <div className="player-header">
-        <div>
-          <span className="kicker">NOW PLAYING</span>
-          <h2>{title || "Movie player"}</h2>
-          <p className="player-languages">Languages: {languages || "Not listed"}</p>
-        </div>
-        <button className="player-fullscreen" onClick={openFullscreen}>⛶ Full screen</button>
+  return <main className="watch-page" ref={playerPageRef}>
+    <header className="watch-page-header">
+      <div>
+        <span className="kicker">NOW PLAYING</span>
+        <h1>{title}</h1>
+        <p>Languages: {languages}</p>
       </div>
-      <div className="player-frame">
-        <iframe
-          src={url}
-          title={title || "Movie player"}
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          referrerPolicy="no-referrer"
-          allowFullScreen
-          webkitallowfullscreen="true"
-          mozallowfullscreen="true"
-        />
-      </div>
-    </section>
-  </div>;
+      <button type="button" onClick={openFullscreen}>⛶ Full screen</button>
+    </header>
+    {isValid ? <iframe
+      className="watch-page-frame"
+      src={`/api/player?${playerParams.toString()}`}
+      title={title}
+      allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+      referrerPolicy="no-referrer"
+      allowFullScreen
+      webkitallowfullscreen="true"
+      mozallowfullscreen="true"
+    /> : <section className="watch-page-error">
+      <h1>Unable to start this stream</h1>
+      <p>The movie or episode ID is invalid.</p>
+      <a href={window.location.pathname}>Return to MovieFinder</a>
+    </section>}
+  </main>;
 }
 
 function AuthModal({ onClose, onUser }) {
