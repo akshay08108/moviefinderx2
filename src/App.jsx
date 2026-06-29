@@ -718,7 +718,7 @@ function StreamDisclaimer({ movie, onCancel, onContinue }) {
       <div className="notice-icon">!</div>
       <span className="kicker">BEFORE YOU WATCH</span>
       <h2 id="stream-disclaimer-title">One quick streaming note</h2>
-      <p>Keep your ad blocker enabled. Popup and redirect protection is applied to the player.</p>
+      <p>This third-party player may display ads. Keep your browser protection enabled and close any unwanted tabs.</p>
       <div className="stream-language-card">
         <span>Streaming languages</span>
         <strong>{languages}</strong>
@@ -788,7 +788,6 @@ function PlayerModal({ title, languages, url, onClose }) {
           src={url}
           title={title || "Movie player"}
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
           referrerPolicy="no-referrer"
           allowFullScreen
           webkitallowfullscreen="true"
