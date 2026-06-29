@@ -717,8 +717,14 @@ function StreamDisclaimer({ movie, onCancel, onContinue }) {
     <section className="stream-disclaimer" role="dialog" aria-modal="true" aria-labelledby="stream-disclaimer-title">
       <div className="notice-icon">!</div>
       <span className="kicker">BEFORE YOU WATCH</span>
-      <h2 id="stream-disclaimer-title">One quick streaming note</h2>
-      <p>This third-party player may display ads. Keep your browser protection enabled and close any unwanted tabs.</p>
+      <h2 id="stream-disclaimer-title">Safer, smoother playback</h2>
+      <p className="stream-disclaimer-intro">This third-party player may display ads. These steps help reduce interruptions:</p>
+      <ol className="stream-tutorial">
+        <li><strong>Keep protection on.</strong><span>Enable your browser’s popup blocker and a trusted content blocker before continuing.</span></li>
+        <li><strong>Use the real player controls.</strong><span>Ignore banners, download buttons, and prompts that appear outside the video controls.</span></li>
+        <li><strong>Close unwanted tabs.</strong><span>If another page opens, close it and return to the MovieFinder player.</span></li>
+        <li><strong>Go fullscreen after playback starts.</strong><span>Press <kbd>F</kbd> on a computer or use the Full screen button on mobile.</span></li>
+      </ol>
       <div className="stream-language-card">
         <span>Streaming languages</span>
         <strong>{languages}</strong>
